@@ -14,25 +14,56 @@ function App() {
   // State for the text input field
   const [input, setInput] = useState('');
 
-  // Function to handle sending a new message
-  const handleSend = (e) => {
+  // Function to handle sending a new message (Notice it is now 'async')
+  const handleSend = async (e) => {
     e.preventDefault();
     if (!input.trim()) return;
 
-    // 1. Add the user's message to the chat
-    const userMessage = { id: Date.now(), role: 'user', text: input };
-    setMessages((prev) => [...prev, userMessage]);
+    // Save the input to send to the API, then clear the box instantly
+    const ideaToEvaluate = input;
     setInput('');
 
-    // 2. Simulate an AI response delay for the prototype
-    setTimeout(() => {
-      const aiResponse = { 
-        id: Date.now() + 1, 
-        role: 'ai', 
-        text: "That sounds fascinating! Let's drill down into that. Who is your target audience? (Backend AI integration coming soon!)" 
-      };
-      setMessages((prev) => [...prev, aiResponse]);
-    }, 1000);
+    // 1. Add the user's message to the chat
+    const userMessage = { id: Date.now(), role: 'user', text: ideaToEvaluate };
+    setMessages((prev) => [...prev, userMessage]);
+
+    // 2. Add a temporary "Analyzing..." message so the user knows the AI is thinking
+    const typingId = Date.now() + 1;
+    setMessages((prev) => [
+      ...prev, 
+      { id: typingId, role: 'ai', text: "Analyzing your idea..." }
+    ]);
+
+    try {
+      // 3. Send the idea to n8n
+      // (We will replace this URL with your actual n8n webhook URL later)
+      const response = await fetch("YOUR_N8N_WEBHOOK_URL_HERE", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        // We pack the idea into a JSON object to send to the backend
+        body: JSON.stringify({ idea: ideaToEvaluate }), 
+      });
+
+      // 4. Wait for n8n to process the AI and send the data back
+      const data = await response.json();
+
+      // 5. Replace the "Analyzing..." message with the REAL AI response
+      setMessages((prev) => 
+        prev.map(msg => 
+          msg.id === typingId ? { ...msg, text: data.reply } : msg
+        )
+      );
+
+    } catch (error) {
+      // If the server is offline, errors out, or the webhook isn't set up yet
+      setMessages((prev) => 
+        prev.map(msg => 
+          msg.id === typingId ? { ...msg, text: "Oops! The AI backend is currently offline. (Webhook not connected yet!)" } : msg
+        )
+      );
+    }
   };
 
   return (
